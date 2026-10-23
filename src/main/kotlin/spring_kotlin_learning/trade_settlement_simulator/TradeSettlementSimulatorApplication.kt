@@ -2,18 +2,12 @@ package spring_kotlin_learning.trade_settlement_simulator
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.scheduling.annotation.EnableScheduling
 
-@RestController
 @SpringBootApplication
-class MyApplication {
-
-	@RequestMapping("/")
-	fun home() = "Hello World!"
-
-}
+@EnableScheduling
+class TradeSettlementSimulatorApplication
 
 fun main(args: Array<String>) {
-	runApplication<MyApplication>(*args)
+	runApplication<TradeSettlementSimulatorApplication>(*args)
 }
