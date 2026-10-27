@@ -6,7 +6,8 @@ import spring_kotlin_learning.trade_settlement_simulator.infrastructure.idempote
 import spring_kotlin_learning.trade_settlement_simulator.infrastructure.idempotency.IdempotencyKeyRepository
 import spring_kotlin_learning.trade_settlement_simulator.infrastructure.trade.TradeEntity
 import spring_kotlin_learning.trade_settlement_simulator.infrastructure.trade.TradeRepository
-import spring_kotlin_learning.trade_settlement_simulator.infrastructure.trade.TradeStatusHistoryEntity
+import spring_kotlin_learning.trade_settlement_simulator.shared.exception.IdempotencyConflictException
+import spring_kotlin_learning.trade_settlement_simulator.shared.exception.ResourceNotFoundException
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.ConfirmationRequest
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.CreateTradeRequest
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.TradeHistoryResponse
@@ -32,7 +33,7 @@ class TradeService(
     @Transactional(readOnly = true)
     fun getTrade(tradeId: UUID): TradeResponse {
         val entity = tradeRepository.findById(tradeId)
-            .orElseThrow { NoSuchElementException("Trade $tradeId not found") }
+            .orElseThrow { ResourceNotFoundException("Trade $tradeId not found") }
         return toResponse(entity.toDomain())
     }
 
@@ -95,7 +96,7 @@ class TradeService(
 
     private fun loadTrade(tradeId: UUID): Trade {
         val entity = tradeRepository.findById(tradeId)
-            .orElseThrow { NoSuchElementException("Trade $tradeId not found") }
+            .orElseThrow { ResourceNotFoundException("Trade $tradeId not found") }
         return entity.toDomain()
     }
 
@@ -120,7 +121,7 @@ class TradeService(
             val existingPayload = existing.get().requestHash
             val incomingHash = payloadHash(payload)
             if (existingPayload != incomingHash) {
-                throw IllegalStateException("Idempotency key conflict for $operation on trade $tradeId")
+                throw IdempotencyConflictException("Idempotency key conflict for $operation on trade $tradeId")
             }
             return
         }

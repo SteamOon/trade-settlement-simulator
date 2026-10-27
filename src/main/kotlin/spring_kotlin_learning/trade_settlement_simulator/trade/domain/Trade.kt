@@ -1,5 +1,6 @@
 package spring_kotlin_learning.trade_settlement_simulator.trade.domain
 
+import spring_kotlin_learning.trade_settlement_simulator.shared.exception.IllegalTradeTransitionException
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
