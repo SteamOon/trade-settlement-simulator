@@ -28,7 +28,7 @@ class IsinEmbeddable {
 
 @Embeddable
 class PartyIdEmbeddable {
-    @Column(name = "party_id", nullable = false)
+    @Column(name = "party_id", nullable = false, length = 64)
     var value: String = ""
 
     protected constructor()

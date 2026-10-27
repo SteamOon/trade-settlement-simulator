@@ -12,8 +12,14 @@ import jakarta.persistence.Id
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import jakarta.persistence.Version
+import spring_kotlin_learning.trade_settlement_simulator.trade.domain.Isin
+import spring_kotlin_learning.trade_settlement_simulator.trade.domain.Money
+import spring_kotlin_learning.trade_settlement_simulator.trade.domain.PartyId
+import spring_kotlin_learning.trade_settlement_simulator.trade.domain.Quantity
+import spring_kotlin_learning.trade_settlement_simulator.trade.domain.Trade
 import spring_kotlin_learning.trade_settlement_simulator.trade.domain.TradeSide
 import spring_kotlin_learning.trade_settlement_simulator.trade.domain.TradeStatus
+import spring_kotlin_learning.trade_settlement_simulator.trade.domain.TradeStatusChangedEvent
 import java.time.LocalDate
 import java.util.UUID
 
@@ -42,11 +48,11 @@ class TradeEntity {
     lateinit var price: MoneyEmbeddable
 
     @Embedded
-    @AttributeOverride(name = "value", column = Column(name = "our_party_id", nullable = false))
+    @AttributeOverride(name = "value", column = Column(name = "our_party_id", nullable = false, length = 64))
     lateinit var ourPartyId: PartyIdEmbeddable
 
     @Embedded
-    @AttributeOverride(name = "value", column = Column(name = "counterparty_id", nullable = false))
+    @AttributeOverride(name = "value", column = Column(name = "counterparty_id", nullable = false, length = 64))
     lateinit var counterpartyId: PartyIdEmbeddable
 
     @Column(name = "trade_date", nullable = false)
@@ -80,6 +86,7 @@ class TradeEntity {
         settlementDate: LocalDate,
         status: TradeStatus,
         version: Long = 0L,
+        history: MutableList<TradeStatusHistoryEntity> = mutableListOf(),
     ) {
         this.id = id
         this.side = side
@@ -92,5 +99,65 @@ class TradeEntity {
         this.settlementDate = settlementDate
         this.status = status
         this.version = version
+        this.history = history
+        this.history.forEach { it.trade = this }
+    }
+
+    fun toDomain(): Trade {
+        val historyEvents = history.map {
+            TradeStatusChangedEvent(
+                tradeId = id,
+                from = it.fromStatus,
+                to = it.toStatus,
+                reason = it.reason,
+                occurredAt = it.occurredAt,
+            )
+        }
+
+        return Trade.fromPersistence(
+            id = id,
+            side = side,
+            isin = Isin(isin.value),
+            quantity = Quantity.of(quantity.value),
+            price = Money.of(price.amount, price.currency),
+            ourPartyId = PartyId(ourPartyId.value),
+            counterpartyId = PartyId(counterpartyId.value),
+            tradeDate = tradeDate,
+            settlementDate = settlementDate,
+            status = status,
+            version = version,
+            history = historyEvents,
+        )
+    }
+
+    companion object {
+        fun fromDomain(trade: Trade): TradeEntity {
+            val historyEntities = trade.history.map { event ->
+                TradeStatusHistoryEntity(
+                    trade = TradeEntity(),
+                    fromStatus = event.from,
+                    toStatus = event.to,
+                    reason = event.reason,
+                    occurredAt = event.occurredAt,
+                )
+            }.toMutableList()
+
+            val entity = TradeEntity(
+                id = trade.id,
+                side = trade.side,
+                isin = IsinEmbeddable.fromDomain(Isin(trade.isin.value)),
+                quantity = QuantityEmbeddable.fromDomain(Quantity.of(trade.quantity.value)),
+                price = MoneyEmbeddable.fromDomain(Money.of(trade.price.amount, trade.price.currency)),
+                ourPartyId = PartyIdEmbeddable.fromDomain(PartyId(trade.ourPartyId.value)),
+                counterpartyId = PartyIdEmbeddable.fromDomain(PartyId(trade.counterpartyId.value)),
+                tradeDate = trade.tradeDate,
+                settlementDate = trade.settlementDate,
+                status = trade.status,
+                version = trade.version,
+                history = historyEntities,
+            )
+            entity.history.forEach { it.trade = entity }
+            return entity
+        }
     }
 }

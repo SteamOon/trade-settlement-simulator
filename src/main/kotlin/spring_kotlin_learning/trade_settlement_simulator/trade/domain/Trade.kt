@@ -1,5 +1,6 @@
 package spring_kotlin_learning.trade_settlement_simulator.trade.domain
 
+import spring_kotlin_learning.trade_settlement_simulator.shared.exception.IllegalTradeTransitionException
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -177,6 +178,38 @@ class Trade private constructor(
                 status = TradeStatus.PENDING,
                 version = version,
             )
+        }
+
+        fun fromPersistence(
+            id: UUID,
+            side: TradeSide,
+            isin: Isin,
+            quantity: Quantity,
+            price: Money,
+            ourPartyId: PartyId,
+            counterpartyId: PartyId,
+            tradeDate: LocalDate,
+            settlementDate: LocalDate,
+            status: TradeStatus,
+            version: Long = 0L,
+            history: List<TradeStatusChangedEvent> = emptyList(),
+        ): Trade {
+            val trade = Trade(
+                id = id,
+                side = side,
+                isin = isin,
+                quantity = quantity,
+                price = price,
+                ourPartyId = ourPartyId,
+                counterpartyId = counterpartyId,
+                tradeDate = tradeDate,
+                settlementDate = settlementDate,
+                status = status,
+                version = version,
+            )
+            trade._history.clear()
+            trade._history.addAll(history)
+            return trade
         }
     }
 }

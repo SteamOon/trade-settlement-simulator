@@ -12,7 +12,7 @@ import java.util.UUID
 @Table(
     name = "idempotency_keys",
     uniqueConstraints = [
-        UniqueConstraint(columnNames = ["trade_id", "operation_name", "key_value"]),
+        UniqueConstraint(columnNames = ["trade_id", "operation", "key"]),
     ],
 )
 class IdempotencyKeyEntity {
@@ -20,16 +20,16 @@ class IdempotencyKeyEntity {
     @Column(name = "id", nullable = false, updatable = false)
     var id: UUID = UUID.randomUUID()
 
-    @Column(name = "trade_id", nullable = false)
+    @Column(name = "trade_id")
     var tradeId: UUID = UUID.randomUUID()
 
-    @Column(name = "operation_name", nullable = false)
+    @Column(name = "operation", nullable = false)
     var operation: String = ""
 
-    @Column(name = "key_value", nullable = false)
+    @Column(name = "key", nullable = false)
     var key: String = ""
 
-    @Column(name = "request_hash", nullable = false)
+    @Column(name = "request_hash", nullable = false, length = 64)
     var requestHash: String = ""
 
     @Column(name = "created_at", nullable = false)
