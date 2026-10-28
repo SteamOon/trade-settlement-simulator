@@ -15,7 +15,14 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
+import spring_kotlin_learning.trade_settlement_simulator.infrastructure.ledger.AccountEntity
+import spring_kotlin_learning.trade_settlement_simulator.infrastructure.ledger.AccountRepository
+import spring_kotlin_learning.trade_settlement_simulator.infrastructure.ledger.JournalEntryRepository
+import spring_kotlin_learning.trade_settlement_simulator.infrastructure.trade.TradeRepository
+import spring_kotlin_learning.trade_settlement_simulator.ledger.domain.AccountType
+import spring_kotlin_learning.trade_settlement_simulator.trade.domain.TradeStatus
 import tools.jackson.databind.ObjectMapper
+import java.math.BigDecimal
 import java.util.UUID
 
 @SpringBootTest
@@ -23,6 +30,9 @@ import java.util.UUID
 class HttpContractIntegrationTest @Autowired constructor(
     private val context: WebApplicationContext,
     private val objectMapper: ObjectMapper,
+    private val accountRepository: AccountRepository,
+    private val journalEntryRepository: JournalEntryRepository,
+    private val tradeRepository: TradeRepository,
 ) {
 
     private lateinit var mockMvc: MockMvc
@@ -207,6 +217,88 @@ class HttpContractIntegrationTest @Autowired constructor(
     }
 
     @Test
+    fun `matched trade with insufficient balance fails without journal and can cancel`() {
+        val buyerPartyId = "LOW-CASH-BUYER-${UUID.randomUUID().toString().replace("-", "").uppercase()}"
+        val sellerPartyId = "LOW-CASH-SELLER-${UUID.randomUUID().toString().replace("-", "").uppercase()}"
+
+        accountRepository.saveAll(
+            listOf(
+                AccountEntity(
+                    id = UUID.randomUUID(),
+                    partyId = buyerPartyId,
+                    accountType = AccountType.CASH,
+                    currency = "EUR",
+                    balance = BigDecimal("1000.00"),
+                ),
+                AccountEntity(
+                    id = UUID.randomUUID(),
+                    partyId = buyerPartyId,
+                    accountType = AccountType.SECURITY,
+                    isin = "US0378331005",
+                    balance = BigDecimal("500.00"),
+                ),
+                AccountEntity(
+                    id = UUID.randomUUID(),
+                    partyId = sellerPartyId,
+                    accountType = AccountType.CASH,
+                    currency = "EUR",
+                    balance = BigDecimal("20000.00"),
+                ),
+                AccountEntity(
+                    id = UUID.randomUUID(),
+                    partyId = sellerPartyId,
+                    accountType = AccountType.SECURITY,
+                    isin = "US0378331005",
+                    balance = BigDecimal("1000.00"),
+                ),
+            )
+        )
+
+        val tradeId = createTradeId(
+            "settlement-failure-001",
+            validTradeRequest(
+                "ourPartyId" to buyerPartyId,
+                "counterpartyId" to sellerPartyId,
+                "quantity" to 100.00,
+                "price" to 50.25,
+                "tradeDate" to "2026-10-26",
+                "settlementDate" to "2026-10-27",
+            )
+        )
+
+        mockMvc.perform(
+            post("/api/trades/{id}/confirmation", tradeId)
+                .header("Idempotency-Key", "settlement-failure-confirm")
+                .contentType(APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validConfirmationRequest()))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("MATCHED"))
+
+        mockMvc.perform(
+            post("/api/trades/{id}/settlement-instruction-result", tradeId)
+                .header("Idempotency-Key", "settlement-failure-001")
+                .contentType(APPLICATION_JSON)
+                .content("""{"result":"SETTLED","reason":"settle_success"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("FAILED"))
+
+        assert(journalEntryRepository.findByTradeId(tradeId).isEmpty())
+
+        mockMvc.perform(
+            post("/api/trades/{id}/cancel", tradeId)
+                .header("Idempotency-Key", "settlement-failure-cancel")
+                .contentType(APPLICATION_JSON)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("CANCELLED"))
+
+        val persistedTrade = tradeRepository.findById(tradeId).orElseThrow().toDomain()
+        assert(persistedTrade.status == TradeStatus.CANCELLED)
+    }
+
+    @Test
     fun `GET api accounts returns balances`() {
         mockMvc.perform(get("/api/accounts"))
             .andExpect(status().isOk)
@@ -214,8 +306,7 @@ class HttpContractIntegrationTest @Autowired constructor(
             .andExpect(jsonPath("$[0].partyId").exists())
     }
 
-    private fun createTradeId(idempotencyKey: String): UUID {
-        val request = validTradeRequest()
+    private fun createTradeId(idempotencyKey: String, request: Map<String, Any?> = validTradeRequest()): UUID {
         val response = mockMvc.perform(
             post("/api/trades")
                 .header("Idempotency-Key", idempotencyKey)
