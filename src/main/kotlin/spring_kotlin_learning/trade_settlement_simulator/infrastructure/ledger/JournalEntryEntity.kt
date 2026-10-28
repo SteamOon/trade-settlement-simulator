@@ -8,7 +8,6 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.Table
-import jakarta.persistence.Version
 import spring_kotlin_learning.trade_settlement_simulator.ledger.domain.JournalEntry
 import java.time.Instant
 import java.util.UUID
@@ -31,14 +30,10 @@ class JournalEntryEntity {
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
-        name = "journal_postings",
+        name = "postings",
         joinColumns = [JoinColumn(name = "journal_entry_id")],
     )
     var postings: MutableList<PostingEmbeddable> = mutableListOf()
-
-    @Version
-    @Column(name = "version", nullable = false)
-    var version: Long = 0L
 
     protected constructor()
 
@@ -48,14 +43,12 @@ class JournalEntryEntity {
         bookedAt: Instant,
         postings: List<PostingEmbeddable>,
         description: String? = null,
-        version: Long = 0L,
     ) {
         this.id = id
         this.tradeId = tradeId
         this.bookedAt = bookedAt
         this.postings = postings.toMutableList()
         this.description = description
-        this.version = version
     }
 
     fun toDomain(): JournalEntry = JournalEntry.create(
