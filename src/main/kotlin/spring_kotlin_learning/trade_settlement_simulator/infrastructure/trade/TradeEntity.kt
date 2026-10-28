@@ -65,7 +65,7 @@ class TradeEntity {
     @Column(name = "status", nullable = false, length = 16)
     lateinit var status: TradeStatus
 
-    @OneToMany(mappedBy = "trade", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "trade", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     var history: MutableList<TradeStatusHistoryEntity> = mutableListOf()
 
     @Version
