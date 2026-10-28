@@ -182,6 +182,31 @@ class HttpContractIntegrationTest @Autowired constructor(
     }
 
     @Test
+    fun `POST api trades settlement result rejects unmatched trades with 409`() {
+        val tradeId = createTradeId("settlement-result-mismatch")
+
+        mockMvc.perform(
+            post("/api/trades/{id}/confirmation", tradeId)
+                .header("Idempotency-Key", "settlement-result-mismatch-confirm")
+                .contentType(APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validConfirmationRequest("quantity" to 99.99)))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("UNMATCHED"))
+
+        mockMvc.perform(
+            post("/api/trades/{id}/settlement-instruction-result", tradeId)
+                .header("Idempotency-Key", "settlement-result-mismatch-001")
+                .contentType(APPLICATION_JSON)
+                .content("""{"result":"SETTLED","reason":"settle_success"}""")
+        )
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.error").value("Conflict"))
+            .andExpect(jsonPath("$.message").value("Cannot settle a trade in UNMATCHED state"))
+    }
+
+    @Test
     fun `GET api accounts returns balances`() {
         mockMvc.perform(get("/api/accounts"))
             .andExpect(status().isOk)
