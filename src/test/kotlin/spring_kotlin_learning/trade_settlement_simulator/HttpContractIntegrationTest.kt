@@ -25,15 +25,13 @@ import tools.jackson.databind.ObjectMapper
 import java.math.BigDecimal
 import java.util.UUID
 
-@SpringBootTest
-@Import(PostgresTestcontainersConfiguration::class)
 class HttpContractIntegrationTest @Autowired constructor(
     private val context: WebApplicationContext,
     private val objectMapper: ObjectMapper,
     private val accountRepository: AccountRepository,
     private val journalEntryRepository: JournalEntryRepository,
     private val tradeRepository: TradeRepository,
-) {
+) : BaseIntegrationTest() {
 
     private lateinit var mockMvc: MockMvc
 

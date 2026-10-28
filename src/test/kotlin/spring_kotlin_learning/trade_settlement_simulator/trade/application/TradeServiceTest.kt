@@ -1,9 +1,7 @@
 package spring_kotlin_learning.trade_settlement_simulator.trade.application
 
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
-import spring_kotlin_learning.trade_settlement_simulator.PostgresTestcontainersConfiguration
+import spring_kotlin_learning.trade_settlement_simulator.BaseIntegrationTest
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.ConfirmationRequest
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.CreateTradeRequest
 import spring_kotlin_learning.trade_settlement_simulator.trade.domain.TradeSide
@@ -13,11 +11,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
-@SpringBootTest
-@Import(PostgresTestcontainersConfiguration::class)
 class TradeServiceTest @Autowired constructor(
     private val tradeService: TradeService,
-) {
+) : BaseIntegrationTest() {
 
     @Test
     fun `create and fetch a trade`() {
