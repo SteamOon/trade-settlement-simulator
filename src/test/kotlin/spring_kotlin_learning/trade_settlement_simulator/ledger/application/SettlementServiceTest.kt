@@ -1,9 +1,7 @@
 package spring_kotlin_learning.trade_settlement_simulator.ledger.application
 
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
-import spring_kotlin_learning.trade_settlement_simulator.PostgresTestcontainersConfiguration
+import spring_kotlin_learning.trade_settlement_simulator.BaseIntegrationTest
 import spring_kotlin_learning.trade_settlement_simulator.infrastructure.ledger.JournalEntryRepository
 import spring_kotlin_learning.trade_settlement_simulator.infrastructure.trade.TradeEntity
 import spring_kotlin_learning.trade_settlement_simulator.infrastructure.trade.TradeRepository
@@ -17,14 +15,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@SpringBootTest
-@Import(PostgresTestcontainersConfiguration::class)
 class SettlementServiceTest @Autowired constructor(
     private val tradeService: TradeService,
     private val settlementService: SettlementService,
     private val tradeRepository: TradeRepository,
     private val journalEntryRepository: JournalEntryRepository,
-) {
+) : BaseIntegrationTest() {
 
     @Test
     fun `matched trade settles with a balanced four-posting journal`() {
@@ -63,6 +59,9 @@ class SettlementServiceTest @Autowired constructor(
 
         val persistedTrade = tradeRepository.findById(created.id).orElseThrow().toDomain()
         assertEquals(TradeStatus.SETTLED, persistedTrade.status)
+        assertEquals(3, persistedTrade.history.size)
+        assertTrue(persistedTrade.history.any { it.to == TradeStatus.MATCHED })
+        assertTrue(persistedTrade.history.any { it.to == TradeStatus.SETTLED })
 
         val journalEntries = journalEntryRepository.findByTradeId(created.id)
         assertEquals(1, journalEntries.size)
