@@ -217,6 +217,48 @@ class HttpContractIntegrationTest @Autowired constructor(
     }
 
     @Test
+    fun `duplicate settlement instruction result with same key is a no-op and changed body is 409`() {
+        val tradeId = createTradeId("settlement-idempotency-001")
+
+        mockMvc.perform(
+            post("/api/trades/{id}/confirmation", tradeId)
+                .header("Idempotency-Key", "settlement-idempotency-confirm")
+                .contentType(APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validConfirmationRequest()))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("MATCHED"))
+
+        mockMvc.perform(
+            post("/api/trades/{id}/settlement-instruction-result", tradeId)
+                .header("Idempotency-Key", "settlement-idempotency-key")
+                .contentType(APPLICATION_JSON)
+                .content("""{"result":"SETTLED","reason":"settle_success"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("SETTLED"))
+
+        mockMvc.perform(
+            post("/api/trades/{id}/settlement-instruction-result", tradeId)
+                .header("Idempotency-Key", "settlement-idempotency-key")
+                .contentType(APPLICATION_JSON)
+                .content("""{"result":"SETTLED","reason":"settle_success"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("SETTLED"))
+
+        mockMvc.perform(
+            post("/api/trades/{id}/settlement-instruction-result", tradeId)
+                .header("Idempotency-Key", "settlement-idempotency-key")
+                .contentType(APPLICATION_JSON)
+                .content("""{"result":"SETTLED","reason":"different_payload"}""")
+        )
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.error").value("Conflict"))
+    }
+
+    @Test
     fun `matched trade with insufficient balance fails without journal and can cancel`() {
         val buyerPartyId = "LOW-CASH-BUYER-${UUID.randomUUID().toString().replace("-", "").uppercase()}"
         val sellerPartyId = "LOW-CASH-SELLER-${UUID.randomUUID().toString().replace("-", "").uppercase()}"
