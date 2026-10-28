@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.ConfirmationRequest
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.CreateTradeRequest
+import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.SettlementResultRequest
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.TradeResponse
 import spring_kotlin_learning.trade_settlement_simulator.trade.application.TradeService
 import java.net.URI
@@ -49,6 +50,17 @@ class TradeController(
     ): ResponseEntity<TradeResponse> {
         return ResponseEntity.status(HttpStatus.OK).body(
             tradeService.confirmTrade(tradeId, request, idempotencyKey)
+        )
+    }
+
+    @PostMapping("/trades/{tradeId}/settlement-instruction-result")
+    fun settlementInstructionResult(
+        @PathVariable tradeId: UUID,
+        @Valid @RequestBody request: SettlementResultRequest,
+        @RequestHeader(value = "Idempotency-Key", required = false) idempotencyKey: String?,
+    ): ResponseEntity<TradeResponse> {
+        return ResponseEntity.status(HttpStatus.OK).body(
+            tradeService.processSettlementInstructionResult(tradeId, request, idempotencyKey)
         )
     }
 

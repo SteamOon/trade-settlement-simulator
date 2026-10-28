@@ -159,6 +159,29 @@ class HttpContractIntegrationTest @Autowired constructor(
     }
 
     @Test
+    fun `POST api trades settlement result settles a matched trade`() {
+        val tradeId = createTradeId("settlement-result-001")
+
+        mockMvc.perform(
+            post("/api/trades/{id}/confirmation", tradeId)
+                .header("Idempotency-Key", "settlement-result-confirm")
+                .contentType(APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validConfirmationRequest()))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("MATCHED"))
+
+        mockMvc.perform(
+            post("/api/trades/{id}/settlement-instruction-result", tradeId)
+                .header("Idempotency-Key", "settlement-result-001")
+                .contentType(APPLICATION_JSON)
+                .content("""{"result":"SETTLED","reason":"settle_success"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("SETTLED"))
+    }
+
+    @Test
     fun `GET api accounts returns balances`() {
         mockMvc.perform(get("/api/accounts"))
             .andExpect(status().isOk)
@@ -190,7 +213,7 @@ class HttpContractIntegrationTest @Autowired constructor(
             "price" to 50.25,
             "currency" to "EUR",
             "ourPartyId" to "HOUSE-01",
-            "counterpartyId" to "CPTY-01",
+            "counterpartyId" to "COUNTERPARTY-01",
             "tradeDate" to "2026-10-26",
             "settlementDate" to "2026-10-27",
         )

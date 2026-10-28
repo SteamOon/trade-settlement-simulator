@@ -8,8 +8,10 @@ import spring_kotlin_learning.trade_settlement_simulator.infrastructure.trade.Tr
 import spring_kotlin_learning.trade_settlement_simulator.infrastructure.trade.TradeRepository
 import spring_kotlin_learning.trade_settlement_simulator.shared.exception.IdempotencyConflictException
 import spring_kotlin_learning.trade_settlement_simulator.shared.exception.ResourceNotFoundException
+import spring_kotlin_learning.trade_settlement_simulator.ledger.application.SettlementService
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.ConfirmationRequest
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.CreateTradeRequest
+import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.SettlementResultRequest
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.TradeHistoryResponse
 import spring_kotlin_learning.trade_settlement_simulator.trade.api.dto.TradeResponse
 import spring_kotlin_learning.trade_settlement_simulator.trade.domain.Isin
@@ -28,6 +30,7 @@ import java.util.UUID
 class TradeService(
     private val tradeRepository: TradeRepository,
     private val idempotencyKeyRepository: IdempotencyKeyRepository,
+    private val settlementService: SettlementService,
 ) {
 
     @Transactional(readOnly = true)
@@ -68,6 +71,30 @@ class TradeService(
         trade.confirm(confirmation)
         val response = saveAndRespond(trade)
         recordIdempotency(tradeId, "confirm", idempotencyKey, request)
+        return response
+    }
+
+    @Transactional
+    fun processSettlementInstructionResult(
+        tradeId: UUID,
+        request: SettlementResultRequest,
+        idempotencyKey: String? = null,
+    ): TradeResponse {
+        val normalizedResult = request.result?.trim()?.uppercase()
+        val response = when (normalizedResult) {
+            "SETTLED" -> {
+                settlementService.attemptSettlement(tradeId)
+                getTrade(tradeId)
+            }
+            "FAILED" -> {
+                val trade = loadTrade(tradeId)
+                trade.fail(request.reason ?: "settlement_instruction_failed")
+                saveAndRespond(trade)
+            }
+            else -> throw IllegalArgumentException("Unsupported settlement result: ${request.result}")
+        }
+
+        recordIdempotency(tradeId, "settlement_instruction_result", idempotencyKey, request)
         return response
     }
 
