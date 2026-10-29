@@ -358,7 +358,7 @@ class HttpContractIntegrationTest @Autowired constructor(
             .response
             .contentAsString
 
-        return UUID.fromString(objectMapper.readTree(response).get("id").asText())
+        return UUID.fromString(objectMapper.readTree(response).get("id").asString())
     }
 
     private fun validTradeRequest(vararg overrides: Pair<String, Any?>): Map<String, Any?> {
