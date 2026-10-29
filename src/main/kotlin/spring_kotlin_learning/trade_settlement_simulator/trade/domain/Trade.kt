@@ -165,6 +165,8 @@ class Trade private constructor(
             id: UUID = UUID.randomUUID(),
             version: Long = 0L,
         ): Trade {
+            require(quantity.isPositive()) { "Trade quantity must be greater than zero, but was $quantity" }
+            require(price.isPositive()) { "Trade price must be greater than zero, but was $price" }
             return Trade(
                 id = id,
                 side = side,

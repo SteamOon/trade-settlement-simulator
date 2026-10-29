@@ -71,4 +71,23 @@ class JournalEntryTest {
             Posting(accountId = account.id, debit = BigDecimal("10.00"), credit = BigDecimal("10.00"))
         }
     }
+
+    @Test
+    fun `accounts support zero balance for both cash and security`() {
+        val zeroCash = Account.cash(
+            id = UUID.randomUUID(),
+            partyId = PartyId("HOUSE-01"),
+            currency = "EUR",
+            balance = Money.zero("EUR"),
+        )
+        val zeroSecurity = Account.security(
+            id = UUID.randomUUID(),
+            partyId = PartyId("COUNTERPARTY-01"),
+            isin = Isin("US0378331005"),
+            balance = Quantity.zero(),
+        )
+
+        assertEquals(true, zeroCash.moneyBalance().isZero())
+        assertEquals(true, zeroSecurity.quantityBalance().isZero())
+    }
 }
