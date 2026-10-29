@@ -339,6 +339,86 @@ class HttpContractIntegrationTest @Autowired constructor(
     }
 
     @Test
+    fun `POST api trades retry recovers a failed trade back to MATCHED`() {
+        val buyerPartyId = "RETRY-BUYER-${UUID.randomUUID().toString().replace("-", "").uppercase()}"
+        val sellerPartyId = "RETRY-SELLER-${UUID.randomUUID().toString().replace("-", "").uppercase()}"
+
+        accountRepository.saveAll(
+            listOf(
+                AccountEntity(
+                    id = UUID.randomUUID(),
+                    partyId = buyerPartyId,
+                    accountType = AccountType.CASH,
+                    currency = "EUR",
+                    balance = BigDecimal.ZERO,
+                ),
+                AccountEntity(
+                    id = UUID.randomUUID(),
+                    partyId = buyerPartyId,
+                    accountType = AccountType.SECURITY,
+                    isin = "US0378331005",
+                    balance = BigDecimal("500.00"),
+                ),
+                AccountEntity(
+                    id = UUID.randomUUID(),
+                    partyId = sellerPartyId,
+                    accountType = AccountType.CASH,
+                    currency = "EUR",
+                    balance = BigDecimal("20000.00"),
+                ),
+                AccountEntity(
+                    id = UUID.randomUUID(),
+                    partyId = sellerPartyId,
+                    accountType = AccountType.SECURITY,
+                    isin = "US0378331005",
+                    balance = BigDecimal("1000.00"),
+                ),
+            )
+        )
+
+        val tradeId = createTradeId(
+            "retry-test-001",
+            validTradeRequest(
+                "ourPartyId" to buyerPartyId,
+                "counterpartyId" to sellerPartyId,
+                "quantity" to 100.00,
+                "price" to 50.25,
+                "tradeDate" to "2026-10-26",
+                "settlementDate" to "2026-10-27",
+            )
+        )
+
+        mockMvc.perform(
+            post("/api/trades/{id}/confirmation", tradeId)
+                .header("Idempotency-Key", "retry-test-confirm")
+                .contentType(APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validConfirmationRequest()))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("MATCHED"))
+
+        mockMvc.perform(
+            post("/api/trades/{id}/settlement-instruction-result", tradeId)
+                .header("Idempotency-Key", "retry-test-settle")
+                .contentType(APPLICATION_JSON)
+                .content("""{"result":"SETTLED","reason":"settle_success"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("FAILED"))
+
+        mockMvc.perform(
+            post("/api/trades/{id}/retry", tradeId)
+                .header("Idempotency-Key", "retry-test-retry")
+                .contentType(APPLICATION_JSON)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("MATCHED"))
+
+        val persisted = tradeRepository.findById(tradeId).orElseThrow().toDomain()
+        assert(persisted.status == TradeStatus.MATCHED)
+    }
+
+    @Test
     fun `GET api accounts returns balances`() {
         mockMvc.perform(get("/api/accounts"))
             .andExpect(status().isOk)
@@ -358,7 +438,7 @@ class HttpContractIntegrationTest @Autowired constructor(
             .response
             .contentAsString
 
-        return UUID.fromString(objectMapper.readTree(response).get("id").asText())
+        return UUID.fromString(objectMapper.readTree(response).get("id").asString())
     }
 
     private fun validTradeRequest(vararg overrides: Pair<String, Any?>): Map<String, Any?> {
