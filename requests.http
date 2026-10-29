@@ -1,0 +1,148 @@
+### Trade Settlement Simulator - HTTP Requests
+# Compatible with VS Code REST Client, IntelliJ IDEA, and httpyac CLI
+
+@baseUrl = http://localhost:8080/api
+
+### 1. Verify Initial Account Balances
+GET {{baseUrl}}/accounts
+Accept: application/json
+
+### 2. Capture a New Trade (PENDING)
+# @name createHappyTrade
+POST {{baseUrl}}/trades
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: http-suite-trade-001
+
+{
+  "side": "BUY",
+  "isin": "US0378331005",
+  "quantity": 100.00,
+  "price": 150.00,
+  "currency": "EUR",
+  "ourPartyId": "HOUSE-01",
+  "counterpartyId": "COUNTERPARTY-01",
+  "tradeDate": "2026-10-29",
+  "settlementDate": "2026-10-30"
+}
+
+### 3. Read Back Newly Created Trade
+GET {{baseUrl}}/trades/{{createHappyTrade.id}}
+Accept: application/json
+
+### 4. Counterparty Confirmation with Mismatch -> UNMATCHED
+POST {{baseUrl}}/trades/{{createHappyTrade.id}}/confirmation
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: http-suite-confirm-mismatch-001
+
+{
+  "side": "SELL",
+  "isin": "US0378331005",
+  "quantity": 100.00,
+  "price": 160.00,
+  "currency": "EUR"
+}
+
+### 5. Correct Counterparty Confirmation -> MATCHED
+POST {{baseUrl}}/trades/{{createHappyTrade.id}}/confirmation
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: http-suite-confirm-match-001
+
+{
+  "side": "SELL",
+  "isin": "US0378331005",
+  "quantity": 100.00,
+  "price": 150.00,
+  "currency": "EUR"
+}
+
+### 6. Custodian Settlement Result -> SETTLED (Atomic DVP)
+POST {{baseUrl}}/trades/{{createHappyTrade.id}}/settlement-instruction-result
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: http-suite-settle-001
+
+{
+  "result": "SETTLED",
+  "reason": "settle_success"
+}
+
+### 7. Inspect Settled Trade Audit Trail
+GET {{baseUrl}}/trades/{{createHappyTrade.id}}
+Accept: application/json
+
+### 8. Inspect Updated Account Balances
+GET {{baseUrl}}/accounts
+Accept: application/json
+
+### 9. Failure Flow - Capture Trade Exceeding Counterparty Cash
+# COUNTERPARTY-01 buys 1,000 shares @ €100.00 = €100,000 required, but only holds €40,000 cash
+# @name createFailTrade
+POST {{baseUrl}}/trades
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: http-suite-trade-fail-001
+
+{
+  "side": "SELL",
+  "isin": "US0378331005",
+  "quantity": 1000.00,
+  "price": 100.00,
+  "currency": "EUR",
+  "ourPartyId": "HOUSE-01",
+  "counterpartyId": "COUNTERPARTY-01",
+  "tradeDate": "2026-10-29",
+  "settlementDate": "2026-10-30"
+}
+
+### 10. Confirm Trade 2 -> MATCHED
+POST {{baseUrl}}/trades/{{createFailTrade.id}}/confirmation
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: http-suite-confirm-fail-001
+
+{
+  "side": "BUY",
+  "isin": "US0378331005",
+  "quantity": 1000.00,
+  "price": 100.00,
+  "currency": "EUR"
+}
+
+### 11. Attempt Settlement with Insufficient Funds -> FAILED
+POST {{baseUrl}}/trades/{{createFailTrade.id}}/settlement-instruction-result
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: http-suite-settle-fail-001
+
+{
+  "result": "SETTLED",
+  "reason": "settle_success"
+}
+
+### 12. Retry Failed Trade -> MATCHED
+POST {{baseUrl}}/trades/{{createFailTrade.id}}/retry
+Accept: application/json
+Idempotency-Key: http-suite-retry-001
+
+### 13. Simulate Custodian Notice of Rejection -> FAILED
+POST {{baseUrl}}/trades/{{createFailTrade.id}}/settlement-instruction-result
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: http-suite-custodian-reject-001
+
+{
+  "result": "FAILED",
+  "reason": "custodian_rejected"
+}
+
+### 14. Cancel Failed Trade -> CANCELLED
+POST {{baseUrl}}/trades/{{createFailTrade.id}}/cancel
+Accept: application/json
+Idempotency-Key: http-suite-cancel-001
+
+### 15. Verify Cancelled Trade Read Model
+GET {{baseUrl}}/trades/{{createFailTrade.id}}
+Accept: application/json
