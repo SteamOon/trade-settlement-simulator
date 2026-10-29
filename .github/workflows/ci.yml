@@ -25,3 +25,23 @@ jobs:
 
       - name: Run tests with Gradle
         run: ./gradlew test
+
+      - name: Set up secrets and start PostgreSQL
+        run: |
+          mkdir -p secrets
+          echo -n "tss_password" > secrets/spring.datasource.password
+          docker compose up -d
+
+      - name: Start Spring Boot Application
+        run: |
+          ./gradlew bootRun > spring.log 2>&1 &
+          timeout 60 bash -c 'until curl -s http://localhost:8080/api/accounts > /dev/null; do sleep 1; done' || (cat spring.log && exit 1)
+
+      - name: Run E2E HTTP Suite
+        run: |
+          npx --yes httpyac send requests.http --all --bail
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose down -v || true

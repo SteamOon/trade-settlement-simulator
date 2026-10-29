@@ -116,6 +116,16 @@ Run the full unit and integration test suite:
 
 > **Note:** Integration tests run against real PostgreSQL instances spun up automatically using **Testcontainers**. Docker must be running on your machine. You do not need to start `compose.yaml` to run tests.
 
+### Executing the E2E HTTP Suite (`requests.http`)
+
+An automated HTTP test suite is provided in [`requests.http`](requests.http). Once the application is running, run all requests from the terminal using `npx`:
+
+```bash
+npx --yes httpyac send requests.http --all
+```
+
+*(This suite is also integrated directly into the [CI pipeline](.github/workflows/ci.yml) as an automated E2E smoke test).*
+
 ### Pre-Seeded Demo Accounts
 
 Flyway migration `V1__parties_and_accounts.sql` initializes test accounts to easily demonstrate successful and failed settlements:
