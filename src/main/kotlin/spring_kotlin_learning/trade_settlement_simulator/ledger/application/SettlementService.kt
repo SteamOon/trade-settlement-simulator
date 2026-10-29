@@ -74,13 +74,13 @@ class SettlementService(
             isin = trade.isin.value,
         ).orElseThrow { IllegalStateException("No security account found for seller $sellerPartyId") }
 
-        if (buyerCash.toDomain().moneyBalance().compareTo(requiredCash) < 0) {
+        if (buyerCash.toDomain().moneyBalance() < requiredCash) {
             val failed = trade.fail("insufficient_cash_balance")
             tradeRepository.save(TradeEntity.fromDomain(trade))
             return failed
         }
 
-        if (sellerSecurity.toDomain().quantityBalance().compareTo(trade.quantity) < 0) {
+        if (sellerSecurity.toDomain().quantityBalance() < trade.quantity) {
             val failed = trade.fail("insufficient_security_balance")
             tradeRepository.save(TradeEntity.fromDomain(trade))
             return failed
