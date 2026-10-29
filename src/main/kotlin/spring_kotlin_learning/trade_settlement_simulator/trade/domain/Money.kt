@@ -5,9 +5,8 @@ import java.math.BigDecimal
 class Money private constructor(
     val amount: BigDecimal,
     val currency: String,
-) {
+) : Comparable<Money> {
     init {
-        require(amount != null) { "Amount must not be null" }
         require(currency.matches(Regex("^[A-Z]{3}$"))) {
             "Currency must be a valid ISO-4217 code in uppercase, but was '$currency'"
         }
@@ -15,7 +14,6 @@ class Money private constructor(
 
     companion object {
         fun of(amount: BigDecimal, currency: String): Money {
-            require(amount != null) { "Amount must not be null" }
             return Money(amount, currency.trim().uppercase())
         }
 
@@ -38,7 +36,7 @@ class Money private constructor(
 
     fun isPositive(): Boolean = amount.compareTo(BigDecimal.ZERO) > 0
 
-    fun compareTo(other: Money): Int {
+    override fun compareTo(other: Money): Int {
         requireSameCurrency(other)
         return amount.compareTo(other.amount)
     }

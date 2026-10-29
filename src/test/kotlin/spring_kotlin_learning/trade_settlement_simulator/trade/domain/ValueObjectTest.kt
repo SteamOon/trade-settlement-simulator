@@ -45,10 +45,40 @@ class ValueObjectTest {
     }
 
     @Test
-    fun `quantity stores a positive amount with exact decimal semantics`() {
+    fun `money implements comparable allowing idiomatic comparison operators`() {
+        val low = Money.of(BigDecimal("50.00"), "EUR")
+        val high = Money.of(BigDecimal("100.00"), "EUR")
+        val equal = Money.of(BigDecimal("50.00"), "EUR")
+
+        assertEquals(true, low < high)
+        assertEquals(true, high > low)
+        assertEquals(true, low <= equal)
+        assertEquals(true, low >= equal)
+    }
+
+    @Test
+    fun `quantity stores zero and positive amounts with exact decimal semantics`() {
         val quantity = Quantity.of(BigDecimal("250.00"))
         assertEquals(BigDecimal("250.00"), quantity.value)
         assertEquals(BigDecimal("500.00"), (quantity + Quantity.of(BigDecimal("250.00"))).value)
+
+        val zero = Quantity.zero()
+        assertEquals(BigDecimal.ZERO, zero.value)
+        assertEquals(true, zero.isZero())
+        assertEquals(false, zero.isPositive())
+        assertEquals(true, quantity.isPositive())
+    }
+
+    @Test
+    fun `quantity implements comparable allowing idiomatic comparison operators`() {
+        val low = Quantity.of(BigDecimal("10.00"))
+        val high = Quantity.of(BigDecimal("50.00"))
+        val equal = Quantity.of(BigDecimal("10.00"))
+
+        assertEquals(true, low < high)
+        assertEquals(true, high > low)
+        assertEquals(true, low <= equal)
+        assertEquals(true, low >= equal)
     }
 
     @Test

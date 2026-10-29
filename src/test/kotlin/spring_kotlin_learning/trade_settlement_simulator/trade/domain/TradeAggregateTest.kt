@@ -144,4 +144,31 @@ class TradeAggregateTest {
             trade.settle()
         }
     }
+
+    @Test
+    fun `trade creation rejects zero quantity or non-positive price`() {
+        assertFailsWith<IllegalArgumentException> {
+            Trade.create(
+                side = TradeSide.BUY,
+                isin = Isin("US0378331005"),
+                quantity = Quantity.zero(),
+                price = Money.of(BigDecimal("50.25"), "EUR"),
+                ourPartyId = PartyId("HOUSE-01"),
+                counterpartyId = PartyId("COUNTERPARTY-01"),
+                tradeDate = LocalDate.of(2026, 10, 26),
+            )
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            Trade.create(
+                side = TradeSide.BUY,
+                isin = Isin("US0378331005"),
+                quantity = Quantity.of(BigDecimal("100.00")),
+                price = Money.zero("EUR"),
+                ourPartyId = PartyId("HOUSE-01"),
+                counterpartyId = PartyId("COUNTERPARTY-01"),
+                tradeDate = LocalDate.of(2026, 10, 26),
+            )
+        }
+    }
 }
